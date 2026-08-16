@@ -19,37 +19,69 @@ export default function Home() {
   const [todosData, setTodosData] = useState<Todo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [newTodoText, setNewTodoText] = useState<string>("");
+  const [creating, setCreating] = useState<boolean>(false);
 
   // Fetch data from APIs
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch hello API
+      const helloRes = await fetch("/api/hello");
+      const helloText = await helloRes.text();
+      setHelloData(helloText);
+
+      // Fetch time API
+      const timeRes = await fetch("/api/time");
+      const timeJson = await timeRes.json();
+      setTimeData(timeJson);
+
+      // Fetch todos API
+      const todosRes = await fetch("/api/todos");
+      const todosJson = await todosRes.json();
+      setTodosData(todosJson);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Fetch hello API
-        const helloRes = await fetch("/api/hello");
-        const helloText = await helloRes.text();
-        setHelloData(helloText);
-
-        // Fetch time API
-        const timeRes = await fetch("/api/time");
-        const timeJson = await timeRes.json();
-        setTimeData(timeJson);
-
-        // Fetch todos API
-        const todosRes = await fetch("/api/todos");
-        const todosJson = await todosRes.json();
-        setTodosData(todosJson);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
+
+  // Create new todo
+  const handleCreateTodo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTodoText.trim()) return;
+
+    try {
+      setCreating(true);
+      const res = await fetch("/api/todos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: newTodoText.trim() }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to create todo");
+      }
+
+      const newTodo = await res.json();
+      setTodosData((prev) => [...prev, newTodo]);
+      setNewTodoText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create todo");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -114,6 +146,25 @@ export default function Home() {
               /api/todos (GET & POST)
             </h2>
             <div className="p-4 bg-white dark:bg-gray-800 rounded border">
+              {/* Create Todo Form */}
+              <form onSubmit={handleCreateTodo} className="mb-4 flex gap-2">
+                <input
+                  type="text"
+                  value={newTodoText}
+                  onChange={(e) => setNewTodoText(e.target.value)}
+                  placeholder="新しいTodoを入力..."
+                  className="flex-1 px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  disabled={creating}
+                />
+                <button
+                  type="submit"
+                  disabled={creating || !newTodoText.trim()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creating ? "追加中..." : "追加"}
+                </button>
+              </form>
+
               <p className="font-mono text-sm mb-2">Todo List:</p>
               <ul className="space-y-2">
                 {todosData.map((todo) => (
